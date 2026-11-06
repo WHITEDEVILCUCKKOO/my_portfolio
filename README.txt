@@ -7,3 +7,18 @@ SETUP (XAMPP or any PHP 8+ / MySQL host)
    Screenshot and CV paths must start with assets/ or https://  (e.g. assets/vedayur.jpg).
 6. On a live site use HTTPS, and block public access to schema.sql.
 Contact form messages are saved to the database and shown in the admin Messages tab (no email is sent).
+
+ADMIN CODE STRUCTURE
+admin/index.php            thin controller (only calls functions, then loads views)
+admin/functions/schema.php tables, menu, icons, page names
+admin/functions/auth.php   login check, current admin
+admin/functions/crud.php   add / update / delete / find / list for projects, skills, services, experience
+admin/functions/messages.php, settings.php, account.php   messages, site settings, email/password change
+admin/functions/actions.php decides which function runs for a submitted form
+admin/views/               page layout and screens (HTML only)
+
+HTTPS (removes the "Not secure" warning)
+1. Install an SSL certificate for the domain/subdomain: cPanel > SSL/TLS Status > Run AutoSSL (or "Let's Encrypt" in FastPanel / your panel).
+2. Upload .htaccess next to index.php. It redirects http:// to https:// and blocks schema.sql, config.php etc.
+3. Open the site with https:// and check the padlock. Only then enable the commented HSTS line in .htaccess.
+Note: .htaccess works on Apache. On nginx-only hosting, turn on "Redirect HTTP to HTTPS" in the panel instead.

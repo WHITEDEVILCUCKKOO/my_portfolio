@@ -1,0 +1,38 @@
+# ===== Abhi portfolio: HTTPS + basic protection (Apache) =====
+# Put this file in the same folder as index.php (for a subdomain, that subdomain's document root).
+
+Options -Indexes
+
+# --- 1. Force HTTPS (needs an SSL certificate installed for the domain/subdomain) ---
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # leave localhost (XAMPP) alone so local testing still works
+  RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:\d+)?$ [NC]
+  # allow the certificate authority to verify the domain over http
+  RewriteCond %{REQUEST_URI} !^/\.well-known/
+  # already https? (direct, or behind a proxy/CDN such as Cloudflare)
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# --- 2. Security headers ---
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  # Turn this on ONLY after https works everywhere on the domain (browsers remember it for a year):
+  # Header always set Strict-Transport-Security "max-age=31536000"
+</IfModule>
+
+# --- 3. Block private files from being opened in the browser ---
+<FilesMatch "^(config\.php|schema\.sql|update_db\.sql|create_admin\.sql|README\.txt)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
