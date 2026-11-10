@@ -26,7 +26,7 @@ $stack = array_filter(array_map('trim', explode(',', $S['hero_stack'] ?? '')));
   
   
   <?php include_once'./inculdes/home/hero.php' ?>
-  <?php include_once'./inculdes/home/about.php' ?>
+  <?php// include_once'./inculdes/home/about.php' ?>
   <?php include_once'./inculdes/home/technical_skills.php' ?>
   <?php include_once'./inculdes/home/service.php' ?>
   <?php include_once'./inculdes/home/featured_projects.php' ?>
