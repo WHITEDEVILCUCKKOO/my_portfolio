@@ -77,11 +77,10 @@ $text  = $S['products_text'] ?? 'Websites and web applications I have built. Ope
 #abhp .sort{display:flex;align-items:center;gap:8px;color:var(--mute)}
 #abhp select{background:var(--card);border:1px solid var(--edge);border-radius:10px;padding:8px 12px;cursor:pointer}
 #abhp .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,290px),1fr));gap:20px}
-#abhp .grid.rows{display:flex;flex-direction:column}
-#abhp .prow{display:flex;gap:20px;align-items:stretch}
-#abhp .prow>.pd,#abhp .pd-sp{flex:1 1 0;min-width:0}
-#abhp .pd-sp{visibility:hidden}
-#abhp .pd{--c:#37b6c9;--cr:55,182,201;position:relative;display:flex;flex-direction:column;border-radius:20px;overflow:hidden;background:var(--card);border:1px solid var(--edge);transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:flex-grow .55s cubic-bezier(.2,.75,.25,1),transform .2s ease-out,border-color .3s,box-shadow .3s;scroll-margin-top:110px;animation:pdrise .6s cubic-bezier(.2,.75,.25,1) backwards;animation-delay:calc(var(--i,0)*70ms)}
+#abhp .grid{position:relative}
+#abhp .grid.rows{grid-template-columns:repeat(var(--n,1),minmax(0,1fr))}
+#abhp .pd{min-width:0}
+#abhp .pd{--c:#37b6c9;--cr:55,182,201;position:relative;display:flex;flex-direction:column;border-radius:20px;overflow:hidden;background:var(--card);border:1px solid var(--edge);transform:perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .2s ease-out,border-color .3s,box-shadow .3s;scroll-margin-top:110px;animation:pdrise .6s cubic-bezier(.2,.75,.25,1) backwards;animation-delay:calc(var(--i,0)*70ms)}
 #abhp:not(.on) .pd{animation-play-state:paused}
 #abhp .pd[hidden]{display:none}
 #abhp .pd::before{content:"";position:absolute;inset:0;z-index:2;border-radius:inherit;background:radial-gradient(380px circle at var(--mx,50%) var(--my,0%),rgba(var(--cr),.2),transparent 55%);opacity:0;transition:opacity .3s;pointer-events:none}
@@ -128,12 +127,11 @@ $text  = $S['products_text'] ?? 'Websites and web applications I have built. Ope
 @media(max-width:760px){#abhp .dl{grid-template-columns:1fr}#abhp .dl-img{min-height:200px;font-size:84px}#abhp .dl-b{padding:24px 20px}#abhp .bar{flex-direction:column;align-items:flex-start}}
 #abhp h4{margin:0}
 /* the focused (hovered / clicked) card grows; the others in its row share what is left */
-#abhp .pd.is-focus{flex-grow:2;border-color:var(--c);box-shadow:0 22px 50px -18px rgba(var(--cr),.45)}
-#abhp .grid.c2 .pd.is-focus{flex-grow:1.5}#abhp .grid.c1 .pd.is-focus{flex-grow:1}
-#abhp .grid.c3 .pd.is-focus,#abhp .grid.c4 .pd.is-focus{flex-direction:row}
-#abhp .grid.c3 .pd.is-focus .pd-img,#abhp .grid.c4 .pd.is-focus .pd-img{width:44%;flex:none;aspect-ratio:auto}
+#abhp .pd.is-focus{border-color:var(--c);box-shadow:0 22px 50px -18px rgba(var(--cr),.45)}
+#abhp .grid.c2 .pd.is-focus,#abhp .grid.c3 .pd.is-focus,#abhp .grid.c4 .pd.is-focus{flex-direction:row}
+#abhp .grid.c2 .pd.is-focus .pd-img,#abhp .grid.c3 .pd.is-focus .pd-img,#abhp .grid.c4 .pd.is-focus .pd-img{width:44%;flex:none;aspect-ratio:auto}
 #abhp .pd.is-focus .pd-img{aspect-ratio:16/9}
-#abhp .grid.c3 .pd.is-focus .pd-body,#abhp .grid.c4 .pd.is-focus .pd-body{justify-content:center;padding:24px}
+#abhp .grid.c2 .pd.is-focus .pd-body,#abhp .grid.c3 .pd.is-focus .pd-body,#abhp .grid.c4 .pd.is-focus .pd-body{justify-content:center;padding:24px}
 #abhp .pd.is-focus h3{font-size:clamp(24px,2.6vw,32px)}
 #abhp .pd.is-focus .pd-desc{-webkit-line-clamp:5}
 #abhp .pd-ft{display:grid;gap:6px;max-height:0;opacity:0;overflow:hidden;color:#cfc7bc;font-size:13px;transition:max-height .5s,opacity .4s,margin .4s}
@@ -153,7 +151,7 @@ $text  = $S['products_text'] ?? 'Websites and web applications I have built. Ope
 @media(prefers-reduced-motion:reduce){#abhp *,#abhp *::before{animation:none!important;transition:none!important}}
 </style>
 
-<section id="products" aria-labelledby="abhpT">
+<section id="products projects" aria-labelledby="abhpT">
 <div id="abhp">
   <div class="wrap">
     <p class="eyebrow">Built by me</p>
@@ -221,7 +219,7 @@ var PAL=<?= json_encode($PAL) ?>;
 var grid=S.querySelector('.grid'); if(!grid)return;
 var cards=[].slice.call(grid.querySelectorAll('.pd')), empty=S.querySelector('.empty'), dlg=S.querySelector('dialog'), cat='all', sort='feat', cur=-1;
 var reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
-var order=cards.slice(), focus=cards.filter(function(c){return c.classList.contains("is-focus")})[0], ncols=0;
+var lx=0,ly=0,order=cards.slice(), focus=cards.filter(function(c){return c.classList.contains("is-focus")})[0], ncols=0;
 function visible(){return order.filter(function(c){return !c.hidden})}
 function replay(c){c.style.animation='none';void c.offsetWidth;c.style.animation=''}
 function apply(){
@@ -238,21 +236,33 @@ function apply(){
   layout(true);
 }
 function colCount(){var w=grid.clientWidth||S.clientWidth;return Math.max(1,Math.min(4,Math.floor((w+20)/290)))}
-/* cards are placed in rows; the focused card is wider, its row-mates share the remaining width */
-function layout(anim){
-  var vis=visible();ncols=colCount();grid.className='grid rows c'+ncols;grid.textContent='';
+/* grid cell (1-based, row by row) a card occupies right now - measured from layout, so hover lift/tilt does not matter */
+function cellOf(c){
+  var tops=[],colW=(grid.clientWidth-20*(ncols-1))/ncols;
+  visible().forEach(function(x){if(tops.indexOf(x.offsetTop)<0)tops.push(x.offsetTop)});tops.sort(function(a,b){return a-b});
+  return tops.indexOf(c.offsetTop)*ncols+Math.round(c.offsetLeft/(colW+20))+1}
+/* every card keeps the same 1-column width; only the focused card spans 2 columns, anchored where it already was */
+function layout(anim,anchor){
+  var vis=visible();ncols=colCount();grid.className='grid rows c'+ncols;grid.style.setProperty('--n',ncols);
+  cards.forEach(function(c){c.style.gridColumn='';c.style.gridRow=''});
+  var cur=[].slice.call(grid.children);
+  if(!(cur.length===order.length&&order.every(function(c,i){return cur[i]===c})))order.forEach(function(c){grid.appendChild(c)});
   if(!vis.length)return;
   if(!focus||focus.hidden)focus=vis[0];
   cards.forEach(function(c){c.classList.toggle('is-focus',c===focus)});
-  for(var i=0;i<vis.length;i+=ncols){
-    var part=vis.slice(i,i+ncols),row=document.createElement('div');row.className='prow';
-    part.forEach(function(c){row.appendChild(c)});
-    for(var k=part.length;k<ncols;k++){var sp=document.createElement('div');sp.className='pd-sp';sp.setAttribute('aria-hidden','true');row.appendChild(sp)}
-    grid.appendChild(row)}
+  if(ncols>1){var s=Math.min(anchor||vis.indexOf(focus)+1,vis.length);if((s-1)%ncols===ncols-1)s--;
+    focus.style.gridColumn=((s-1)%ncols+1)+' / span 2';focus.style.gridRow=Math.floor((s-1)/ncols)+1}
   if(anim)vis.forEach(replay);
 }
+var lock=null;
 function setFocus(c,scroll){
-  if(focus===c)return;focus=c;cards.forEach(function(x){x.classList.toggle('is-focus',x===c)});
+  if(focus===c)return;
+  var before=visible().map(function(x){return[x,x.offsetLeft,x.offsetTop]}),a=ncols>1?cellOf(c):0;
+  lock={x:lx,y:ly};focus=c;layout(false,a);
+  if(!reduce&&c.animate){
+    before.forEach(function(b){var x=b[0];if(x===c)return;var dx=b[1]-x.offsetLeft,dy=b[2]-x.offsetTop;
+      if(Math.abs(dx)>1||Math.abs(dy)>1)x.animate([{transform:'translate('+dx+'px,'+dy+'px)'},{transform:'translate(0,0)'}],{duration:480,easing:'cubic-bezier(.2,.75,.25,1)'})});
+    c.animate([{opacity:.82,transform:'scale(.95)'},{opacity:1,transform:'scale(1)'}],{duration:460,easing:'cubic-bezier(.2,.75,.25,1)'})}
   if(scroll)setTimeout(function(){var r=c.getBoundingClientRect();if(r.top<80||r.bottom>innerHeight)c.scrollIntoView({block:'nearest',behavior:reduce?'auto':'smooth'})},430)}
 S.querySelectorAll('.chip').forEach(function(b){b.addEventListener('click',function(){
   cat=b.dataset.cat;S.querySelectorAll('.chip').forEach(function(x){x.setAttribute('aria-pressed',x===b)});apply()})});
@@ -292,9 +302,10 @@ cards.forEach(function(c){var hit=c.querySelector('.pd-hit'),go=c.querySelector(
   hit.addEventListener('focus',function(){var fv=false;try{fv=hit.matches(':focus-visible')}catch(e){}if(fv)setFocus(c,false)});
   go.addEventListener('click',function(){setFocus(c,false);open(c)})});
 /* mouse hover: grow after a short pause; only real mouse movement counts, so layout changes cannot trigger it */
-var lx=0,ly=0,ht=null,hc=null;
+var ht=null,hc=null;
 grid.addEventListener('pointermove',function(e){
   if(e.pointerType!=='mouse'||(e.clientX===lx&&e.clientY===ly))return;lx=e.clientX;ly=e.clientY;
+  if(lock){if(Math.abs(lx-lock.x)+Math.abs(ly-lock.y)<40)return;lock=null}
   var c=e.target.closest&&e.target.closest('.pd');
   if(!c||c===focus){clearTimeout(ht);hc=null;return}
   if(c!==hc){hc=c;clearTimeout(ht);ht=setTimeout(function(){setFocus(c,false)},170)}});
