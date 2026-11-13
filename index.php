@@ -32,7 +32,7 @@ $stack = array_filter(array_map('trim', explode(',', $S['hero_stack'] ?? '')));
   <?php// include_once'./inculdes/home/featured_projects.php' ?>
   <?php// include_once'./inculdes/home/work_experience.php' ?>
   <?php// include_once'./inculdes/home/api_development_backend_expertise.php' ?>
-  <?php// include_once'./inculdes/home/comtact.php' ?>
+  <?php include_once'./inculdes/home/comtact.php' ?>
 
   
   
