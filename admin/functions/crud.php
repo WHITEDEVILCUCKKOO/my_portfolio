@@ -19,6 +19,12 @@ function admin_clean_value(string $type, $raw) {
 /** Cleaned values for every column of the table, in column order. */
 function admin_item_values(string $t, array $post): array {
   $values = [];
+  if ($t === 'projects') {
+    $post['status'] =
+        (($post['status'] ?? 'Active') === 'Inactive')
+        ? 'Inactive'
+        : 'Active';
+}
   foreach (admin_tables()[$t] as $col => $type) $values[] = admin_clean_value($type, $post[$col] ?? '');
   return $values;
 }

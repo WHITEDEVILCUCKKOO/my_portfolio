@@ -78,3 +78,70 @@ dialog.abm-dlg::backdrop{background:rgba(3,7,14,.7);backdrop-filter:blur(3px)}
 .abm-eye{position:absolute;right:.4rem;top:50%;transform:translateY(-50%);background:transparent;border:0;color:var(--abm-blue);font:600 .78rem Inter,sans-serif;cursor:pointer;padding:.3rem .5rem}
 .abm-nav a.abm-on svg{stroke:#06101E}
 .abm-side{box-shadow:0 10px 30px var(--abm-shadow)}
+
+/* Project screenshot controls (scoped) */
+.abm-screen-tools{display:grid;gap:.6rem;border:1px solid var(--abm-line);padding:1rem;border-radius:12px;background:var(--abm-card)}
+.abm-screen-tools label{display:flex;align-items:center;gap:.5rem;color:var(--abm-text)}
+.abm-screen-tools input[type=radio]{width:auto;accent-color:var(--abm-acc)}
+.abm-screen-tools input[type=file]{max-width:100%;font-size:.85rem}
+.abm-screen-tools small{color:var(--abm-mute)}
+.abm-screen-tools a{color:var(--abm-blue);text-decoration:underline}
+.abm-image-dialog{width:min(95vw,1200px);max-width:1200px;max-height:94vh;overflow:auto}
+.abm-image-dialog img{display:block;width:100%;height:auto;margin-top:1rem;border-radius:8px}
+
+
+
+
+/* Logs Dropdown - Light/Dark Theme
+
+[data-theme="light"] select {
+    color-scheme: light;
+}
+
+[data-theme="dark"] select {
+    color-scheme: dark;
+} */
+
+
+
+/* Logs filter dropdown: follow the admin's explicit Day/Night toggle. */
+html:not([data-theme="light"]) .abm-body .lg-filter select {
+  color-scheme: dark;
+  background-color: var(--abm-bg);
+  color: var(--abm-text);
+  border-color: var(--abm-field);
+}
+html:not([data-theme="light"]) .abm-body .lg-filter select option {
+  background-color: #0F1828;
+  color: #F1F5F9;
+}
+html[data-theme="light"] .abm-body .lg-filter select {
+  color-scheme: light;
+  background-color: #FFFFFF;
+  color: var(--abm-text);
+  border-color: var(--abm-line);
+}
+html[data-theme="light"] .abm-body .lg-filter select option {
+  background-color: #FFFFFF;
+  color: #0F172A;
+}
+.abm-body .lg-filter select:focus-visible {
+  outline: 2px solid var(--abm-acc);
+  outline-offset: 2px;
+}
+
+
+.abm-body .abm-form select {
+    font: inherit;
+    color: var(--abm-text);
+    background: var(--abm-bg);
+    border: 1px solid var(--abm-field);
+    border-radius: 10px;
+    padding: .65rem .85rem;
+    width: 100%;
+    color-scheme: dark;
+}
+
+html[data-theme="light"] .abm-body .abm-form select {
+    color-scheme: light;
+}
