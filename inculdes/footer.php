@@ -36,13 +36,17 @@ foreach (['github', 'linkedin'] as $k) {
 $host = preg_replace('~[^a-z0-9.:-]~i', '', $_SERVER['HTTP_HOST'] ?? 'localhost');
 $slug = trim(strtolower(preg_replace('~[^a-z0-9]+~i', '-', strip_tags((string)($S['name'] ?? 'me')))), '-') ?: 'me';
 $cmd  = "curl -s https://$host/api/$slug | jq";
+$tu = preg_replace('~[^a-z0-9_-]~', '', strtolower((string)($terminal_user ?? 'visitor'))) ?: 'visitor';
+$th = preg_replace('~[^a-z0-9_-]~', '', strtolower((string)($terminal_host ?? 'portfolio'))) ?: 'portfolio';
 $JS   = [
   'sections' => array_map(fn($id, $l) => ['id' => $id, 'label' => $l], array_keys($sections), $sections),
   'conn' => array_map(fn($c) => ['v' => $c[0], 'h' => $c[1], 'x' => $c[2]], $conn),
   'name' => $S['name'] ?? '',
   'title' => $S['title'] ?? '',
   'about' => $S['about'] ?? ($S['hero_sub'] ?? ''),
-  'auth' => $terminal_auth_url ?? 'terminal-auth.php'
+  'user' => $tu,
+  'host' => $th,
+  'auth' => $terminal_auth_url ?? (rtrim(dirname((string)($_SERVER['SCRIPT_NAME'] ?? '')), '/\\') . '/terminal-auth.php')
 ];
 
 $N = 0;
@@ -492,7 +496,7 @@ $K = fn($k) => '<span class="k">"' . $k . '"</span><span class="p">: </span>';
       <div class="t-out" aria-live="polite">
         <div class="t-o cmd">Type <b>help</b> and press Enter, or tap a command below.</div>
       </div>
-      <form class="t-form" autocomplete="off"><label class="sr" for="abhfIn">Type a command</label><span class="t-pr">visitor@portfolio:~$</span><input class="t-in" id="abhfIn" placeholder="try: help" autocapitalize="off" spellcheck="false" enterkeyhint="go"></form>
+      <form class="t-form" autocomplete="off"><label class="sr" for="abhfIn">Type a command</label><span class="t-pr"><?= abh_e($tu) ?>@<?= abh_e($th) ?>:~$</span><input class="t-in" id="abhfIn" placeholder="try: help" autocapitalize="off" spellcheck="false" enterkeyhint="go"></form>
     </div>
     <div class="t-chips">
       <?php foreach (['help', 'ls', 'pwd', 'tree', 'cd projects', 'cd contact', 'email', 'github'] as $c): if (in_array($c, ['email', 'github'], true) && !isset($conn[$c])) continue; ?><button class="t-chip" type="button" data-cmd="<?= abh_e($c) ?>"><?= abh_e($c) ?></button><?php endforeach; ?>
@@ -520,8 +524,8 @@ $K = fn($k) => '<span class="k">"' . $k . '"</span><span class="p">: </span>';
       inp = $('.t-in'),
       pr = $('.t-pr'),
       form = $('.t-form');
-    var USER = 'visitor',
-      HOST = 'portfolio',
+    var USER = D.user || 'visitor',
+      HOST = D.host || 'portfolio',
       hist = [],
       hi = 0,
       cwd = '',
@@ -531,19 +535,26 @@ $K = fn($k) => '<span class="k">"' . $k . '"</span><span class="p">: </span>';
       token = '',
       busy = false,
       label = '',
-      t0 = Date.now();
+      t0 = Date.now(),
+      who = '',
+      viaRoot = false,
+      cb = null,
+      redir = null,
+      adminUrl = '/admin/';
     var ALIAS = {
       map: 'abhx',
       footer: 'abhf'
     };
 
     function ps1() {
-      return innerWidth < 560 ? '~' + (cwd ? '/' + cwd : '') + '$' : USER + '@' + HOST + ':~' + (cwd ? '/' + cwd : '') + '$'
+      var u = who ? (viaRoot ? 'root' : who.split('@')[0]) : USER,
+        sy = who ? '#' : '$';
+      return innerWidth < 560 ? '~' + (cwd ? '/' + cwd : '') + sy : u + '@' + HOST + ':~' + (cwd ? '/' + cwd : '') + sy
     }
 
     function setPr(t, root) {
       pr.textContent = t;
-      pr.classList.toggle('root', !!root)
+      pr.classList.toggle('root', root === undefined ? !!who : root)
     }
 
     function print(parts, cls) {
@@ -564,7 +575,8 @@ $K = fn($k) => '<span class="k">"' . $k . '"</span><span class="p">: </span>';
         }
       });
       out.appendChild(d);
-      out.scrollTop = out.scrollHeight
+      out.scrollTop = out.scrollHeight;
+      return d
     }
 
     function lines(t, cls) {
@@ -705,7 +717,8 @@ $K = fn($k) => '<span class="k">"' . $k . '"</span><span class="p">: </span>';
 
     var C = {
       help: function() {
-        lines('Commands\n  pwd            where you are, plus a scan of every section on this page\n  ls [-l] [id]   list sections (or the headings inside one)\n  cd <id>        go to a section   (cd .. / cd ~ = top, cd - = previous)\n  cat <id>       read the text of a section\n  tree           section tree          grep <word>   search the page\n  whoami  id  hostname  uname [-a]  uptime  date  echo  env  neofetch\n  email  phone  github  linkedin       open <github|linkedin|id>\n  history  clear  exit\nTab completes, Up/Down = history, Ctrl+L clears, Ctrl+C cancels.')
+        lines('Commands\n  pwd            where you are, plus a scan of every section on this page\n  ls [-l] [id]   list sections (or the headings inside one)\n  cd <id>        go to a section   (cd .. / cd ~ = top, cd - = previous)\n  cat <id>       read the text of a section\n  tree           section tree          grep <word>   search the page\n  whoami  id  hostname  uname [-a]  uptime  date  echo  env  neofetch\n  email  phone  github  linkedin       open <github|linkedin|id>\n  history  clear  exit\nTab completes, Up/Down = history, Ctrl+L clears, Ctrl+C cancels.');
+        if (who) lines('\nRoot shell\n  passwd [user]           change a password\n  useradd <user>          create a user        userdel <user>   delete a user\n  usermod -l <new> [old]  rename a user        users            list users\n  last                    login history        admin            open the admin panel\n  exit                    leave the root shell')
       },
       pwd: function() {
         var l = scan(),
@@ -805,10 +818,10 @@ $K = fn($k) => '<span class="k">"' . $k . '"</span><span class="p">: </span>';
         }) : print('(no matches)', 'dim')
       },
       whoami: function() {
-        print(USER)
+        print(who ? (viaRoot ? 'root' : who) : USER)
       },
       id: function() {
-        print('uid=1000(' + USER + ') gid=1000(' + USER + ') groups=1000(' + USER + ')')
+        who && viaRoot ? print('uid=0(root) gid=0(root) groups=0(root)') : print('uid=1000(' + (who || USER) + ') gid=1000(' + (who || USER) + ') groups=1000(' + (who || USER) + ')')
       },
       hostname: function() {
         print(HOST)
@@ -869,10 +882,116 @@ $K = fn($k) => '<span class="k">"' . $k . '"</span><span class="p">: </span>';
         out.innerHTML = ''
       },
       exit: function() {
-        print('logout')
+        if (!who) {
+          print('logout');
+          return
+        }
+        api('logout').then(function() {
+          who = '';
+          viaRoot = false;
+          print('logout');
+          setPr(ps1())
+        })
       },
       logout: function() {
-        print('logout')
+        C.exit()
+      },
+      passwd: function(a) {
+        if (!need('passwd')) return;
+        var u = a.filter(function(x) {
+          return x[0] !== '-'
+        })[0] || '';
+        print('Changing password for ' + (u || (viaRoot ? 'root' : who)) + '.');
+        newpw(function(pw) {
+          busy = true;
+          api('passwd', {
+            user: u,
+            new: pw
+          }).then(function(j) {
+            busy = false;
+            j.ok ? print('passwd: password updated successfully', 'ok') : apiErr('passwd', j)
+          })
+        })
+      },
+      useradd: function(a) {
+        if (!need('useradd')) return;
+        var u = a[0];
+        if (!u) {
+          print('usage: useradd <username>', 'err');
+          reportCommand('useradd (missing arguments)', 'failed');
+          return
+        }
+        newpw(function(pw) {
+          busy = true;
+          api('useradd', {
+            user: u,
+            new: pw
+          }).then(function(j) {
+            busy = false;
+            j.ok ? print('useradd: user \'' + j.user + '\' created', 'ok') : apiErr('useradd', j)
+          })
+        })
+      },
+      usermod: function(a) {
+        if (!need('usermod')) return;
+        var i = a.indexOf('-l');
+        if (i < 0 || !a[i + 1]) {
+          print('usage: usermod -l <new-name> [old-name]', 'err');
+          reportCommand('usermod (missing arguments)', 'failed');
+          return
+        }
+        var nu = a[i + 1],
+          old = a.filter(function(x, k) {
+            return k !== i && k !== i + 1
+          })[0] || '';
+        api('usermod', {
+          user: nu,
+          old: old
+        }).then(function(j) {
+          if (j.ok) {
+            print('usermod: renamed to \'' + j.user + '\'', 'ok');
+            if (!old || old.toLowerCase() === who.toLowerCase()) {
+              who = j.user;
+              setPr(ps1())
+            }
+          } else apiErr('usermod', j)
+        })
+      },
+      userdel: function(a) {
+        if (!need('userdel')) return;
+        if (!a[0]) {
+          print('usage: userdel <username>', 'err');
+          reportCommand('userdel (missing arguments)', 'failed');
+          return
+        }
+        api('userdel', {
+          user: a[0]
+        }).then(function(j) {
+          j.ok ? print('userdel: user \'' + j.user + '\' removed', 'ok') : apiErr('userdel', j)
+        })
+      },
+      users: function() {
+        if (!need('users')) return;
+        api('users').then(function(j) {
+          j.ok ? j.users.forEach(function(u) {
+            print(String(u.id).padStart(3) + '  ' + u.username + '    last login: ' + (u.last_login || 'never'))
+          }) : apiErr('users', j)
+        })
+      },
+      last: function() {
+        if (!need('last')) return;
+        api('last').then(function(j) {
+          j.ok ? (j.rows.length ? j.rows.forEach(function(r) {
+            print(r.created_at + '  ' + (r.event + '            ').slice(0, 10) + ' ' + r.detail + '  [' + r.ip + ']')
+          }) : print('(empty)', 'dim')) : apiErr('last', j)
+        })
+      },
+      admin: function() {
+        if (!need('admin')) return;
+        print('Opening ' + adminUrl + ' ...', 'dim');
+        setTimeout(function() {
+          location.href = adminUrl
+        }, 500)
       },
       rm: function(a) {
         a.join(' ').indexOf('/') > -1 && /-\w*r/.test(a.join(' ')) ? lines('rm: it is dangerous to operate recursively on \'/\'\nrm: use --no-preserve-root to override this failsafe') : print('rm: cannot remove \'' + (a.filter(function(x) {
@@ -882,12 +1001,39 @@ $K = fn($k) => '<span class="k">"' . $k . '"</span><span class="p">: </span>';
     };
     var NAMES = Object.keys(C).concat(['sudo', 'su', 'cd']);
 
-    /* root login: sudo su / sudo -i / su -  ... asks for a password, the server checks it, then /admin opens */
+    /* root login: sudo su / sudo -i / su -  -> password -> server checks it (admins table) -> countdown to /admin, or stay and use the root shell */
     var ROOT = /^(sudo (su( -)?( root)?|-i|-s|bash|root( -i)?|-i -u root|-u root -i)|su( -)?( root)?|login( root)?)$/;
+    var ERR = {
+      root: 'Permission denied (become root first: sudo su)',
+      weak: 'BAD PASSWORD: it must be 8-72 characters and different from the user name',
+      exists: 'user already exists',
+      nouser: 'no such user',
+      last: 'cannot remove the last user',
+      self: 'that user is logged in right now',
+      name: 'invalid user name (3-60 letters, digits . _ @ + -)',
+      server: 'service unavailable'
+    };
+
+    function apiErr(c, j) {
+      var e = j && j.error;
+      if (e === 'root') {
+        who = '';
+        viaRoot = false;
+        setPr(ps1())
+      }
+      print(c + ': ' + (ERR[e] || 'failed'), 'err')
+    }
+
+    function need(c) {
+      if (who) return true;
+      print(c + ': Permission denied (become root first: sudo su)', 'err');
+      return false
+    }
 
     function endPw() {
       mode = 'shell';
       busy = false;
+      cb = null;
       inp.type = 'text';
       inp.classList.remove('pw');
       inp.value = '';
@@ -895,9 +1041,11 @@ $K = fn($k) => '<span class="k">"' . $k . '"</span><span class="p">: </span>';
       inp.placeholder = 'try: help'
     }
 
-    function ask(l) {
+    function ask(l, fn) {
       label = l;
-      setPr(l + ' ');
+      cb = fn;
+      mode = 'pw';
+      setPr(l + ' ', false);
       inp.type = 'password';
       inp.classList.add('pw');
       inp.setAttribute('autocomplete', 'new-password');
@@ -919,12 +1067,11 @@ $K = fn($k) => '<span class="k">"' . $k . '"</span><span class="p">: </span>';
       })
     }
 
-    function verify(pw, again) {
-      busy = true;
-      getToken().then(function(t) {
-          var b = new URLSearchParams();
+    function api(action, data, again) {
+      return getToken().then(function(t) {
+          var b = new URLSearchParams(data || {});
           b.set('token', t);
-          b.set('password', pw);
+          b.set('action', action);
           return fetch(D.auth, {
             method: 'POST',
             body: b,
@@ -935,56 +1082,118 @@ $K = fn($k) => '<span class="k">"' . $k . '"</span><span class="p">: </span>';
           })
         })
         .then(function(j) {
-          busy = false;
-          if (j.ok) {
-            mode = 'done';
-            busy = true;
-            setPr('root@' + HOST + ':~#', true);
-            inp.type = 'text';
-            inp.classList.remove('pw');
-            inp.disabled = true;
-            print('Authentication successful.', 'ok');
-            print('Opening ' + (j.redirect || '/admin/') + ' ...', 'dim');
-            setTimeout(function() {
-              location.href = j.redirect || '/admin/'
-            }, 1100);
-            return
-          }
-          if (j.locked) {
-            print('sudo: too many authentication failures. Try again in ' + j.wait + 's', 'err');
-            endPw();
-            return
-          }
-          if (j.error === 'token' && !again) {
+          if (j && j.token) token = j.token;
+          if (j && j.error === 'token' && !again) {
             token = '';
-            verify(pw, true);
-            return
+            return api(action, data, true)
           }
-          if (j.error) {
-            print('sudo: authentication service unavailable', 'err');
-            endPw();
-            return
-          }
-          tries++;
-          if (tries >= 3) {
-            print(label.indexOf('sudo') > -1 ? 'sudo: 3 incorrect password attempts' : 'su: Authentication failure', 'err');
-            endPw()
-          } else {
-            print(label.indexOf('sudo') > -1 ? 'Sorry, try again.' : 'su: Authentication failure', 'err');
-            ask(label)
-          }
+          return j
         })
         .catch(function() {
-          busy = false;
-          print('sudo: authentication service unavailable', 'err');
-          endPw()
+          return {
+            ok: false,
+            error: 'server'
+          }
         })
     }
 
-    function startRoot(raw) {
+    function newpw(done) {
+      ask('New password:', function(a) {
+        ask('Retype new password:', function(b) {
+          if (a !== b) {
+            print('Sorry, passwords do not match.', 'err');
+            endPw();
+            return
+          }
+          endPw();
+          done(a)
+        })
+      })
+    }
+
+    function stay() {
+      if (redir) {
+        clearInterval(redir);
+        redir = null;
+        print('Redirect cancelled. You are in the root shell: passwd  useradd  usermod  userdel  users  last  admin  exit', 'ok')
+      }
+    }
+
+    function countdown(url) {
+      var n = 5,
+        msg = function() {
+          return 'Opening ' + url + ' in ' + n + 's ...  (type anything to stay in the terminal)'
+        },
+        line = print(msg(), 'dim');
+      redir = setInterval(function() {
+        n--;
+        if (n <= 0) {
+          clearInterval(redir);
+          redir = null;
+          location.href = url;
+          return
+        }
+        line.textContent = msg()
+      }, 1000)
+    }
+
+    function login(user, lbl) {
       tries = 0;
-      mode = 'pw';
-      ask(/^(su|login)( |$)/.test(raw) ? 'Password:' : '[sudo] password for ' + USER + ':')
+      (function again() {
+        ask(lbl, function(pw) {
+          busy = true;
+          api('login', {
+            password: pw,
+            user: user || ''
+          }).then(function(j) {
+            busy = false;
+            var su = /^Password/.test(lbl);
+            if (j.ok) {
+              who = j.user;
+              viaRoot = !user;
+              adminUrl = j.redirect || '/admin/';
+              endPw();
+              print('Authentication successful.', 'ok');
+              countdown(adminUrl);
+              return
+            }
+            if (j.locked) {
+              print((su ? 'su' : 'sudo') + ': too many authentication failures. Try again in ' + j.wait + 's', 'err');
+              endPw();
+              return
+            }
+            if (j.error) {
+              print((su ? 'su' : 'sudo') + ': authentication service unavailable', 'err');
+              endPw();
+              return
+            }
+            tries++;
+            if (tries >= 3) {
+              print(su ? 'su: Authentication failure' : 'sudo: 3 incorrect password attempts', 'err');
+              endPw()
+            } else {
+              print(su ? 'su: Authentication failure' : 'Sorry, try again.', 'err');
+              again()
+            }
+          })
+        })
+      })()
+    }
+
+    function startRoot(raw) {
+      login('', /^(su|login)( |$)/.test(raw) ? 'Password:' : '[sudo] password for ' + USER + ':')
+    }
+
+    // Reports browser-simulated commands; the server labels them as client-reported.
+    // Password prompts never pass through run(), and sensitive command lines are redacted.
+    function reportCommand(command, result) {
+      var safe = String(command || '').slice(0, 500);
+      if (/\b(?:passwd|password|token|secret|apikey|api_key|authorization|cookie|sudo|su|login)\b/i.test(safe)) {
+        safe = '[sensitive command redacted]';
+      }
+      api('command_report', {command: safe, result: result}).then(function(j) {
+        if (!j.ok && j.error !== 'root') console.warn('Terminal command audit unavailable');
+      });
     }
 
     function run(raw) {
@@ -994,18 +1203,35 @@ $K = fn($k) => '<span class="k">"' . $k . '"</span><span class="p">: </span>';
       hist.push(c);
       hi = hist.length;
       var n = c.replace(/\s+/g, ' ');
+      stay();
+      var wasRoot = !!who;
+      var commandName = n.split(' ')[0].toLowerCase();
+      var serverCommands = ['passwd', 'useradd', 'usermod', 'userdel', 'users', 'last', 'logout', 'exit'];
+      var isAuth = ROOT.test(n) || commandName === 'su' || commandName === 'login';
+      var isServerCommand = serverCommands.indexOf(commandName) !== -1 ||
+        (commandName === 'sudo' && serverCommands.indexOf((n.split(' ')[1] || '').toLowerCase()) !== -1);
+      var beforeErrors = out.querySelectorAll('.t-o.err').length;
+      try {
       if (ROOT.test(n)) {
+        if (who) {
+          print('already ' + (viaRoot ? 'root' : who), 'dim');
+          return
+        }
         startRoot(n);
         return
       }
       var a = n.split(' '),
         cmd = a.shift();
       if (cmd === 'sudo') {
-        a.length ? print(USER + ' is not in the sudoers file.  This incident will be reported.', 'err') : print('usage: sudo [-i] [-s] command', 'err');
-        return
+        if (who && a.length) cmd = a.shift();
+        else {
+          a.length ? print(USER + ' is not in the sudoers file.  This incident will be reported.', 'err') : print('usage: sudo [-i] [-s] command', 'err');
+          return
+        }
       }
       if (cmd === 'su') {
-        print('su: Authentication failure', 'err');
+        if (a[0] && a[0] !== '-') login(a[0], 'Password:');
+        else print('su: Authentication failure', 'err');
         return
       }
       if (cmd === 'cd') {
@@ -1029,6 +1255,15 @@ $K = fn($k) => '<span class="k">"' . $k . '"</span><span class="p">: </span>';
         return
       }
       print('bash: ' + cmd + ': command not found', 'err')
+      } finally {
+        // Server-side privileged actions already audit their actual outcome.
+        // Browser-only commands are logged once; failed permissions are denied.
+        if (!isAuth && (!isServerCommand || !wasRoot)) {
+          var hadError = out.querySelectorAll('.t-o.err').length > beforeErrors;
+          var isDenied = !wasRoot && (isServerCommand || commandName === 'sudo');
+          reportCommand(n, isDenied ? 'denied' : (hadError ? 'failed' : 'success'));
+        }
+      }
     }
 
     /* Tab completion for commands and section ids */
@@ -1070,13 +1305,15 @@ $K = fn($k) => '<span class="k">"' . $k . '"</span><span class="p">: </span>';
       var v = inp.value;
       inp.value = '';
       if (mode === 'pw') {
+        var f2 = cb;
         print(label, 'cmd');
-        verify(v);
+        f2(v);
         return
       }
       if (mode === 'shell') run(v)
     });
     inp.addEventListener('keydown', function(e) {
+      if (redir) stay();
       if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
         e.preventDefault();
         print(mode === 'pw' ? label + ' ^C' : ps1() + ' ' + inp.value + '^C', 'cmd');

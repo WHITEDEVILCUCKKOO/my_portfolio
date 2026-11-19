@@ -1,13 +1,64 @@
 <?php
 require __DIR__ . '/../config.php';
+require_once __DIR__ . '/functions/logs.php';
+
+// Record login activity in the same terminal_log table used by terminal-auth.php.
+function abm_login_audit(PDO $pdo, string $event, ?int $adminId, string $detail): void {
+  try {
+    admin_logs_ensure($pdo);
+    $ip = substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45);
+    $ipHash = hash('sha256', ($ip ?: '0') . '|abh-term');
+    $ua = substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
+    $stmt = $pdo->prepare('INSERT INTO terminal_log (event, admin_id, detail, ip_hash, ip, user_agent) VALUES (?, ?, ?, ?, ?, ?)');
+    $stmt->execute([$event, $adminId, substr($detail, 0, 255), $ipHash, $ip, $ua]);
+  } catch (Throwable $e) {
+    error_log('Admin login audit error: ' . $e->getMessage());
+  }
+}
+
+require_once __DIR__ . '/functions/security.php';
+
 $msg = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  if (!abh_csrf_ok()) $msg = 'Session expired. Try again.';
-  elseif (($_SESSION['tries'] ?? 0) >= 5 && time() - ($_SESSION['last'] ?? 0) < 300) $msg = 'Too many attempts. Wait 5 minutes.';
-  else {
-    $s = $abhPdo->prepare('SELECT id, password_hash FROM admins WHERE username = ?'); $s->execute([trim($_POST['username'] ?? '')]); $a = $s->fetch();
-    if ($a && password_verify((string)($_POST['password'] ?? ''), $a['password_hash'])) { session_regenerate_id(true); $_SESSION['admin'] = (int)$a['id']; $_SESSION['tries'] = 0; header('Location: index.php'); exit; }
-    $_SESSION['tries'] = ($_SESSION['tries'] ?? 0) + 1; $_SESSION['last'] = time(); $msg = 'Invalid username or password.';
+$ip = abm_security_ip();
+$remaining = abm_security_remaining($abhPdo, $ip);
+if ($remaining > 0) {
+  http_response_code(429);
+  $msg = 'Too many failed attempts. Try again in ' . ceil($remaining / 60) . ' minutes.';
+}
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $remaining === 0) {
+  if (!abh_csrf_ok()) {
+    $msg = 'Session expired. Refresh the page and try again.';
+  } else {
+    $username = trim((string)($_POST['username'] ?? ''));
+    $password = (string)($_POST['password'] ?? '');
+    $s = $abhPdo->prepare('SELECT id, password_hash FROM admins WHERE username = ?');
+    $s->execute([$username]);
+    $a = $s->fetch(PDO::FETCH_ASSOC);
+    $valid = $a && password_verify($password, (string)$a['password_hash']);
+    // Check again after verification so an already blocked IP cannot reset its counter.
+    $remaining = abm_security_remaining($abhPdo, $ip);
+    if ($remaining > 0) {
+      http_response_code(429);
+      $msg = 'Too many failed attempts. Try again later.';
+    } elseif ($valid) {
+      abm_security_success($abhPdo, $ip);
+      session_regenerate_id(true);
+      $_SESSION['admin'] = (int)$a['id'];
+      $_SESSION['tries'] = 0;
+      abm_login_audit($abhPdo, 'login_ok', (int)$a['id'], 'admin login user=' . $username);
+      header('Location: index.php');
+      exit;
+    } else {
+      $remaining = abm_security_fail($abhPdo, $ip);
+      abm_login_audit($abhPdo, 'login_fail', $a ? (int)$a['id'] : null, 'admin login user=' . $username);
+      if ($remaining > 0) {
+        http_response_code(429);
+        abm_login_audit($abhPdo, 'login_block', $a ? (int)$a['id'] : null, 'admin login IP blocked');
+        $msg = 'Too many failed attempts. This IP is blocked for 3 hours.';
+      } else {
+        $msg = 'Invalid username or password.';
+      }
+    }
   }
 }
 ?><!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Admin login</title>
